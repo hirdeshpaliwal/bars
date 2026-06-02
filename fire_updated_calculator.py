@@ -32,17 +32,15 @@ def create_pdf_report(results, inputs, analysis_results):
         pdf.cell(200, 10, txt="Analysis Results:", ln=True)
         pdf.set_font("Arial", size=10)
         
-        # FIXED: Swapped cell for multi_cell with an explicit width of 190mm to allow text wrapping
+        # Fixed: text wrapping for long verdicts
         verdict_text = f"Verdict: {analysis_results['verdict']}"
         clean_verdict = verdict_text.encode('latin-1', 'ignore').decode('latin-1')
         pdf.multi_cell(190, 6, txt=clean_verdict)
         
-        # Success Probability line
         prob_text = f"Success Probability: {analysis_results['success_prob']}%"
         clean_prob = prob_text.encode('latin-1', 'ignore').decode('latin-1')
         pdf.cell(200, 8, txt=clean_prob, ln=True)
         
-        # Output as a safe byte string
         return pdf.output(dest='S').encode('latin-1', 'ignore')
     except Exception as e:
         return f"PDF Generation Error: {str(e)}".encode('latin-1', 'ignore')
@@ -54,24 +52,19 @@ def simulate_drawdown(start_corpus, annual_expense, inflation_rate, investment_r
     expense = annual_expense
     
     for year in range(1, years + 1):
-        # Apply lifestyle creep if applicable
         if year >= creep_start_year:
             expense *= (1 + creep_rate)
             
-        # Withdraw expense (beginning of year)
         corpus -= expense
         
-        # Grow remaining corpus
         if corpus > 0:
             corpus *= (1 + investment_return)
         
-        # Apply inflation for next year's expense
         expense *= (1 + inflation_rate)
         
         data.append([year, expense, max(0, corpus)])
         
         if corpus <= 0:
-            # Fill remaining years with 0
             for y in range(year + 1, years + 1):
                 expense *= (1 + inflation_rate)
                 data.append([y, expense, 0])
@@ -85,8 +78,8 @@ def render():
     
     st.markdown("---")
     
-    # Data Source Toggle
-    use_historical = st.toggle("Use Historical NAV Data (Requires Internet)", value=False)
+    # HARDCODED FIX: Removed the UI toggle widget and set the flag permanently to False
+    use_historical = False
     
     col1, col2 = st.columns(2)
     
@@ -101,13 +94,8 @@ def render():
         st.markdown("### 📈 Assumptions")
         inflation = st.number_input("Inflation Rate (%)", value=6.0, step=0.5) / 100
         
-        if use_historical:
-            amfi_code = st.text_input("AMFI Code (Proxy for Portfolio)", value="122640", help="Parag Parikh Flexi Cap Fund")
-            return_rate = 0.0 # Placeholder
-        else:
-            return_rate = st.number_input("Expected Post-Retirement Return (%)", value=10.0, step=0.5, help="Conservative return during withdrawal phase") / 100
-            amfi_code = None
-        
+        # Cleaned up: Removed the conditional check and AMFI input field
+        return_rate = st.number_input("Expected Post-Retirement Return (%)", value=10.0, step=0.5, help="Conservative return during withdrawal phase") / 100
         pre_retirement_return = st.number_input("Pre-Retirement Growth Rate (%)", value=12.0, step=0.5, help="Expected return during accumulation phase (typically higher)") / 100
         life_expectancy = st.number_input("Life Expectancy", value=85, step=1)
 
@@ -115,34 +103,16 @@ def render():
     
     if st.button("🚀 Calculate FIRE Scenarios", use_container_width=True):
         
-        # Calculate years to retirement and retirement duration
         years_to_retirement = retirement_age - current_age
         retirement_years = life_expectancy - retirement_age
         
-        # Calculate annual expense today
         annual_expense_today = monthly_expense * 12
-        
-        # Calculate expense at retirement (inflated)
         annual_expense_retirement = annual_expense_today * ((1 + inflation) ** years_to_retirement)
         
-        # Investment return
-        if use_historical and amfi_code:
-            with st.spinner("Fetching Historical Data..."):
-                from utils.data_engine import DataEngine
-                df = DataEngine.fetch_fund_history(amfi_code)
-                if df is not None:
-                    df_indexed = df.set_index('date')
-                    cagr, vol = DataEngine.calculate_metrics(df_indexed['nav'])
-                    return_rate = cagr
-                    st.success(f"Using Historical Return: {cagr*100:.2f}%")
-                else:
-                    st.error("Failed to fetch data. Using manual input.")
-                    return_rate = 0.10
-        
+        # Cleaned up: Removed historical calculation engine entirely
         investment_return = return_rate
         inflation_rate = inflation
         
-        # Calculate required corpus for different FIRE levels
         r = investment_return
         i = inflation_rate
         n = retirement_years
@@ -155,7 +125,6 @@ def render():
         else:
             exact_needed_corpus = P1 * (1 - q**n) / (r - i) * (1 + r)
         
-        # Define FIRE scenarios
         corpus_values = {
             "LeanFIRE (1x)": exact_needed_corpus,
             "FIRE (1.25x)": exact_needed_corpus * 1.25,
@@ -165,13 +134,11 @@ def render():
         achievable_corpus = current_corpus * ((1 + pre_retirement_return) ** years_to_retirement)
         corpus_values["Achievable Corpus"] = achievable_corpus
         
-        # Run simulations for each scenario
         results = {}
         for name, corpus in corpus_values.items():
             df_sim = simulate_drawdown(corpus, annual_expense_retirement, inflation_rate, investment_return, retirement_years)
             results[name] = df_sim
         
-        # Display Results
         st.markdown("## 🎯 FIRE Corpus Requirements")
         
         col1, col2, col3, col4 = st.columns(4)
@@ -189,7 +156,6 @@ def render():
             coverage = achievable_corpus / exact_needed_corpus
             st.metric("Your Corpus", f"₹{achievable_corpus/10000000:.2f} Cr", delta=f"Coverage: {coverage:.0%}")
             
-        # Plot scenarios
         st.markdown("---")
         st.markdown("## 📊 Corpus Drawdown Projections")
         
@@ -211,7 +177,6 @@ def render():
                 line=dict(width=3 if name == "Achievable Corpus" else 2, color=colors.get(name, "gray"))
             ))
         
-        # Add Expense Line on Secondary Y-Axis
         expense_df = list(results.values())[0]
         fig.add_trace(go.Scatter(
             x=expense_df["Year"],
@@ -236,7 +201,6 @@ def render():
         
         st.plotly_chart(fig, use_container_width=True)
         
-        # Sustainability check
         st.markdown("---")
         st.markdown("## ✅ Sustainability Analysis")
         
@@ -293,7 +257,6 @@ def render():
         **Verdict:** {achievable_status}
         """)
 
-        # Coast FIRE Analysis
         st.markdown("---")
         st.markdown("## 🏖️ Coast FIRE Analysis")
         
@@ -320,7 +283,6 @@ def render():
         else:
             st.warning(f"**Keep Pushing!** \n\nYou are **{coast_status_pct:.1%}** of the way to Coast FIRE.")
 
-        # Max Sustainable Withdrawal
         st.markdown("---")
         st.markdown("## 💰 Max Sustainable Withdrawal with Achievable Corpus")
         
@@ -351,19 +313,16 @@ def render():
             "Return": f"{investment_return*100:.1f}%"
         }
         
-        # Prepare runtime values for the report dictionaries
         analysis_results = {
             "verdict": achievable_status,
             "success_prob": "100" if "✅" in achievable_status else "0"
         }
         
-        # FIXED: Call the output function and encode correctly
         pdf_bytes = create_pdf_report(results, inputs, analysis_results)
         b64 = base64.b64encode(pdf_bytes).decode('latin-1')
         
         href = f'<a href="data:application/octet-stream;base64,{b64}" download="FIRE_Analysis_Report.pdf" class="stButton"><button style="width:100%">📄 Download PDF Report</button></a>'
         st.markdown(href, unsafe_allow_html=True)
 
-# --- APPLICATION INITIALIZATION ---
 if __name__ == "__main__":
     render()
