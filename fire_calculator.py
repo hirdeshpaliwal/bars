@@ -10,6 +10,7 @@ def create_pdf_report(results, inputs, analysis_results):
     
     def sanitize_text(text):
         """Replace Unicode characters with latin-1 compatible equivalents."""
+        pass  # <--- ADD THIS LINE HERE
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
