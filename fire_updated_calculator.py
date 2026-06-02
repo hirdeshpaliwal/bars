@@ -22,24 +22,26 @@ def create_pdf_report(results, inputs, analysis_results):
         pdf.cell(200, 10, txt="Input Parameters:", ln=True)
         pdf.set_font("Arial", size=10)
         for key, value in inputs.items():
-            # Clean string conversions to prevent FPDF errors
             clean_key = str(key).encode('latin-1', 'ignore').decode('latin-1')
             clean_value = str(value).encode('latin-1', 'ignore').decode('latin-1')
             pdf.cell(200, 8, txt=f"{clean_key}: {clean_value}", ln=True)
         pdf.ln(5)
         
-        # Results
+        # Results Section
         pdf.set_font("Arial", 'B', 12)
         pdf.cell(200, 10, txt="Analysis Results:", ln=True)
         pdf.set_font("Arial", size=10)
         
-        verdict_text = str(analysis_results.get('verdict', 'N/A')).encode('latin-1', 'ignore').decode('latin-1')
-        pdf.cell(200, 8, txt=f"Verdict: {verdict_text}", ln=True)
+        # FIXED: Use multi_cell for the verdict to wrap long text lines cleanly
+        verdict_text = f"Verdict: {analysis_results.get('verdict', 'N/A')}"
+        clean_verdict = verdict_text.encode('latin-1', 'ignore').decode('latin-1')
+        
+        # multi_cell(w, h, txt) uses page boundaries to auto-wrap text strings
+        pdf.multi_cell(190, 6, txt=clean_verdict)
         
         # Output as a safe byte string
         return pdf.output(dest='S').encode('latin-1', 'ignore')
     except Exception as e:
-        # Return error message as bytes if anything fails
         return f"PDF Generation Error: {str(e)}".encode('latin-1', 'ignore')
 
 def simulate_drawdown(start_corpus, annual_expense, inflation_rate, investment_return, years):
@@ -50,14 +52,11 @@ def simulate_drawdown(start_corpus, annual_expense, inflation_rate, investment_r
     
     for year in range(1, years + 1):
         corpus_history.append(max(0, current_corpus))
-        # Deduct expenses at start of year
         current_corpus -= current_expense
-        # Grow remaining corpus
         if current_corpus > 0:
             current_corpus *= (1 + investment_return)
         else:
             current_corpus = 0
-        # Inflate expenses for next year
         current_expense *= (1 + inflation_rate)
         
     return corpus_history
@@ -134,8 +133,18 @@ with m_col2:
     st.metric("Monthly Withdrawal Limit", f"₹{max_withdrawal_monthly/100000:,.2f} L")
 with m_col3:
     st.metric("Safe Withdrawal Rate", f"{withdrawal_rate:.2f}%")
-        
-# PDF Report Setup
+
+# Base Analysis Setup Logic
+if results[-1] <= 0:
+    for idx, bal in enumerate(results):
+        if bal <= 0:
+            dep_age = retirement_age + idx
+            verdict_msg = f"⚠️ Your strategy is unsustainable. Your corpus is projected to drain entirely by age {dep_age}. Review your investment distribution model or adjust your monthly expense inputs."
+            break
+else:
+    verdict_msg = f"✅ Your strategy is simulated successfully. Your financial portfolio safely handles inflation and lasts throughout your target lifespan with surplus capital left over."
+
+# PDF Report Generation Execution
 st.markdown("---")
 inputs = {
     "Annual Expense Today": f"₹{annual_expense_today:,.0f}",
@@ -147,7 +156,7 @@ inputs = {
 }
 
 analysis_results = {
-    "verdict": "Your strategy is simulated successfully. Review the drawdown graph to ensure your wealth lasts throughout your retirement lifespan."
+    "verdict": verdict_msg
 }
 
 # Safely create PDF bytes buffer
