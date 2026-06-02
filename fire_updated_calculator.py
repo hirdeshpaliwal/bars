@@ -5,6 +5,26 @@ import plotly.graph_objects as go
 from fpdf import FPDF
 import base64
 
+# --- HIDE STREAMLIT FOOTER, BADGE, AND FULLSCREEN CONTROLS ---
+st.markdown("""
+    <style>
+    /* Hide the 'Built with Streamlit' footer */
+    footer {visibility: hidden !important;}
+    
+    /* Hide all variations of the hover fullscreen buttons on charts and containers */
+    button[title="View fullscreen"] {display: none !important;}
+    [data-testid="styledFullScreenFrame"] button {display: none !important;}
+    
+    /* Hide the Streamlit host/viewer badges */
+    .viewerBadge_container__1QSob {display: none !important;}
+    div[class^="viewerBadge"] {display: none !important;}
+    
+    /* Fix frame constraints for seamless embedding */
+    iframe[title="streamlitApp"] { max-height: 100%; }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- THE REST OF YOUR WORKING CODE CONTINUES BELOW ---
 def create_pdf_report(results, inputs, analysis_results):
     """Create PDF report with latin-1 compatible text (no Unicode emojis)."""
     try:
