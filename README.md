@@ -2,7 +2,7 @@
 title: Bars FIRE Calculator
 emoji: 🔥
 colorFrom: red
-colorTo: orange
+colorTo: yellow
 sdk: streamlit
 app_file: fire_updated_calculator.py
 pinned: false
